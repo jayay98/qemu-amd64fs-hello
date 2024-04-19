@@ -1,5 +1,24 @@
 #!/bin/sh
 
+#-----------------------------------------------------------------------------
+# Variables
+ISO_URL=http://tinycorelinux.net/15.x/x86/release/Core-current.iso
+
+WORK_DIR=/tmp/workstation
+ISOFILES_DIR=$WORK_DIR/isofiles
+INITRD_DIR=$WORK_DIR/initrd
+OUTPUT_DIR=$WORK_DIR/iso
+OUTPUT_BOOT_DIR=$OUTPUT_DIR/boot
+OUTPUT_GRUB_DIR=$OUTPUT_BOOT_DIR/grub
+
+ISO_PATH=$WORK_DIR/sample.iso
+INITRDGZ_RELPATH=boot/core.gz
+KERNEL_RELPATH=boot/vmlinuz
+OUTPUT_ISO_PATH=./myos.iso
+
+BOOT_MESSAGE="hello world"
+
+# ----------------------------------------------------------------------------
 # Download tool dependencies
 sudo apt-get install qemu-system \
 	xorriso \
@@ -8,32 +27,50 @@ sudo apt-get install qemu-system \
 	wget
 
 # Download TinyCore Binary
-mkdir /tmp/workstation
-wget http://tinycorelinux.net/15.x/x86/release/Core-current.iso -O /tmp/workstation/Core-current.iso
+mkdir $WORK_DIR
+wget $ISO_URL -O $ISO_PATH
 
 # Extract ISO contents
-mkdir /tmp/workstation/isofiles
-bsdtar -xzpvf /tmp/workstation/Core-current.iso -C /tmp/workstation/isofiles
+mkdir $ISOFILES_DIR
+bsdtar -xzf $ISO_PATH -C $ISOFILES_DIR
 
 # Extract Initrd contents
-mkdir /tmp/workstation/initrd
-sudo bsdtar -xzvpf /tmp/workstation/isofiles/boot/core.gz -C /tmp/workstation/initrd
+mkdir $INITRD_DIR
+sudo bsdtar -xzf $ISOFILES_DIR/$INITRDGZ_RELPATH -C $INITRD_DIR
 
-# Edit init
-sudo cp ./init /tmp/workstation/initrd/init
+# Patch init file in init ram disk
+cat <<EOF > $WORK_DIR/init
+#!/bin/sh
+mount -t devtmpfs dev
+mount -t proc proc
+mount -t sysfs sys
+echo "$BOOT_MESSAGE"
+exec /bin/sh
+EOF
+sudo cp $WORK_DIR/init $INITRD_DIR/init
 
-# Pack Initrd contents with `cpio`
-mkdir -p /tmp/workstation/iso/boot/grub/
-cd /tmp/workstation/initrd/
-find . -print0 | cpio --null -ov --format=newc | gzip -9 > /tmp/workstation/iso/boot/initramfs.cpio.gz
+# Pack Initrd contents
+mkdir -p $OUTPUT_GRUB_DIR
+cd $INITRD_DIR
+find . -print0 | cpio --null -ov --format=newc | gzip -9 > $OUTPUT_DIR/$INITRDGZ_RELPATH
 cd -
 
-# Create `boot/`, move files and pack into bootable image & grub.cfg
-cp grub.cfg /tmp/workstation/iso/boot/grub/
-sudo cp /tmp/workstation/isofiles/boot/vmlinuz /tmp/workstation/iso/boot/
-grub-mkrescue -o myos.iso /tmp/workstation/iso/
+# Pack files into bootable image
+cat <<EOF > $OUTPUT_GRUB_DIR/grub.cfg
+set default=0
+set timeout=10
+menuentry 'myos' --class os {
+    insmod gzio
+    insmod part_msdos
+    linux /$KERNEL_RELPATH
+    initrd /$INITRDGZ_RELPATH
+}
+EOF
+sudo cp $ISOFILES_DIR/$KERNEL_RELPATH $OUTPUT_DIR/$KERNEL_RELPATH
+grub-mkrescue -o $OUTPUT_ISO_PATH $OUTPUT_DIR
 
 # Cleanup
-sudo rm -rf /tmp/workstation
+if [ "$CLEANUP" == "1" ]; then sudo rm -rf $WORK_DIR; fi
 
-# qemu-system-x86_64 -m 512 -cdrom ./myos.iso -boot d
+# Launch
+if [ "$LAUNCH" == "1" ]; then qemu-system-x86_64 -m 512 -cdrom $OUTPUT_ISO_PATH -boot d; fi
