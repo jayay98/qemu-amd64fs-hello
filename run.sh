@@ -70,7 +70,7 @@ sudo cp $ISOFILES_DIR/$KERNEL_RELPATH $OUTPUT_DIR/$KERNEL_RELPATH
 grub-mkrescue -o $OUTPUT_ISO_PATH $OUTPUT_DIR
 
 # Cleanup
-if [ "$CLEANUP" == "1" ]; then sudo rm -rf $WORK_DIR; fi
+if [ $CLEANUP -eq "1" ]; then sudo rm -rf $WORK_DIR; echo "Removed $WORK_DIR"; fi
 
 # Launch
-if [ "$LAUNCH" == "1" ]; then qemu-system-x86_64 -m 512 -cdrom $OUTPUT_ISO_PATH -boot d; fi
+if [ $LAUNCH -eq "1" ]; then echo "Launching ISO image with QEMU";  qemu-system-x86_64 -m 512 -cdrom $OUTPUT_ISO_PATH -boot d; fi
