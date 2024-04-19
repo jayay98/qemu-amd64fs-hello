@@ -7,7 +7,7 @@ ISO_URL=http://tinycorelinux.net/15.x/x86/release/Core-current.iso
 WORK_DIR=/tmp/workstation
 ISOFILES_DIR=$WORK_DIR/isofiles
 INITRD_DIR=$WORK_DIR/initrd
-OUTPUT_DIR=$WORK_DIR/iso
+OUTPUT_DIR=/tmp/iso
 OUTPUT_BOOT_DIR=$OUTPUT_DIR/boot
 OUTPUT_GRUB_DIR=$OUTPUT_BOOT_DIR/grub
 
@@ -17,6 +17,7 @@ KERNEL_RELPATH=boot/vmlinuz
 OUTPUT_ISO_PATH=./myos.iso
 
 BOOT_MESSAGE="hello world"
+CLEANUP=1
 
 # ----------------------------------------------------------------------------
 # Download tool dependencies
@@ -73,4 +74,5 @@ grub-mkrescue -o $OUTPUT_ISO_PATH $OUTPUT_DIR
 if [ $CLEANUP -eq "1" ]; then sudo rm -rf $WORK_DIR; echo "Removed $WORK_DIR"; fi
 
 # Launch
-if [ $LAUNCH -eq "1" ]; then echo "Launching ISO image with QEMU";  qemu-system-x86_64 -m 512 -cdrom $OUTPUT_ISO_PATH -boot d; fi
+if [ $LAUNCH -eq "1" ]; then echo "Launching kernel and initrd with QEMU";  qemu-system-x86_64 -m 512 -kernel $OUTPUT_DIR/$KERNEL_RELPATH -initrd $OUTPUT_DIR/$INITRDGZ_RELPATH; fi
+if [ $LAUNCH -eq "2" ]; then echo "Launching ISO image with QEMU";  qemu-system-x86_64 -m 512 -cdrom $OUTPUT_ISO_PATH -boot d; fi
